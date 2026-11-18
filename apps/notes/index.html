@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Notes</title>
+<link rel="stylesheet" href="/sdk/hindsight.css">
+<style>
+  .list { list-style: none; margin: 0; padding: 0; }
+  .list button {
+    display: block; width: 100%;
+    padding: 14px 20px;
+    border: 0; border-bottom: 1px solid var(--hs-rule);
+    background: none; text-align: left; cursor: pointer;
+  }
+  .list button:active { background: #e6edf6; }
+  .list .t { display: block; font-weight: 650; font-size: 17px; }
+  .list .s { display: block; color: var(--hs-muted); font-size: 14px;
+             overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .list .d { display: block; color: var(--hs-muted); font-size: 12px; margin-top: 2px; }
+
+  .editor { display: flex; flex-direction: column; height: 100%; }
+  .editor .fields { flex: 1; display: flex; flex-direction: column; padding: 8px 20px 20px; }
+  .editor input, .editor textarea {
+    border: 0; background: transparent; outline: none; padding: 0;
+  }
+  .editor input { font-size: 24px; font-weight: 650; margin: 8px 0 10px; }
+  .editor textarea { flex: 1; resize: none; font-size: 17px; line-height: 1.55; }
+  .editor .meta { color: var(--hs-muted); font-size: 12px; }
+  #app { height: 100%; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script src="/sdk/hindsight.js"></script>
+<script>
+"use strict";
+const store = Hindsight.storage;
+const app = document.getElementById("app");
+let notes = {};          // key -> note
+let editing = null;      // key of the open note
+let saveTimer = null;
+let pending = null;      // unsaved {key, note}
+
+const ICON_BACK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>';
+const ICON_PLUS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>';
+const ICON_TRASH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg>';
+
+const when = (t) => new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(t));
+const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+function el(tag, props, ...kids) {
+  const n = document.createElement(tag);
+  Object.assign(n, props || {});
+  for (const k of kids) n.append(k);
+  return n;
+}
+
+async function load() {
+  notes = await store.getAll("note:");
+  if (!Hindsight.isPreview && !Object.keys(notes).length && !(await store.get("meta:seeded", false))) {
+    const now = Date.now();
+    const welcome = {
+      title: "Try Rewind",
+      body: "Delete this note with the bin button.\n\nThen tap the Rewind button at the bottom right of the screen and drag the dial to the right. You'll see Notes as it was a moment ago, with this note still here. Tap “Restore this version” to get it back.\n\nEvery app on Hindsight works like this.",
+      created: now, updated: now,
+    };
+    await store.set("note:welcome", welcome);
+    await store.set("meta:seeded", true);
+    notes = { "note:welcome": welcome };
+  }
+}
+
+function renderList() {
+  editing = null;
+  app.textContent = "";
+  const bar = el("header", { className: "hs-bar" }, el("h1", { textContent: "Notes" }));
+  const add = el("button", { className: "hs-btn icon primary hs-edit-only", type: "button", innerHTML: ICON_PLUS, title: "New note" });
+  add.setAttribute("aria-label", "New note");
+  add.onclick = () => {
+    const key = "note:" + newId();
+    const now = Date.now();
+    notes[key] = { title: "", body: "", created: now, updated: now };
+    renderEditor(key, true);
+  };
+  bar.append(add);
+  app.append(bar);
+  const keys = Object.keys(notes).sort((a, b) => notes[b].updated - notes[a].updated);
+  if (!keys.length) {
+    app.append(el("div", { className: "hs-empty" },
+      el("strong", { textContent: "No notes" }),
+      Hindsight.isPreview ? "There were no notes at this point." : "Tap + to write one."));
+    return;
+  }
+  const ul = el("ul", { className: "list" });
+  for (const key of keys) {
+    const n = notes[key];
+    const firstLine = (n.body || "").split("\n").find((l) => l.trim()) || "No text";
+    const b = el("button", { type: "button" },
+      el("span", { className: "t", textContent: n.title || "Untitled" }),
+      el("span", { className: "s", textContent: firstLine }),
+      el("span", { className: "d", textContent: "Edited " + when(n.updated) }));
+    b.onclick = () => renderEditor(key);
+    ul.append(el("li", {}, b));
+  }
+  app.append(ul);
+}
+
+function renderEditor(key, isNew) {
+  editing = key;
+  const n = notes[key];
+  app.textContent = "";
+  const back = el("button", { className: "hs-btn icon", type: "button", innerHTML: ICON_BACK });
+  back.setAttribute("aria-label", "All notes");
+  back.onclick = async () => { await flush(); if (isEmpty(key)) delete notes[key]; renderList(); };
+  const del = el("button", { className: "hs-btn icon danger hs-edit-only", type: "button", innerHTML: ICON_TRASH });
+  del.setAttribute("aria-label", "Delete note");
+  del.onclick = () => removeNote(key);
+  const bar = el("header", { className: "hs-bar" }, back, el("h1", { textContent: "" }), del);
+  const title = el("input", { value: n.title, placeholder: "Title", readOnly: Hindsight.isPreview });
+  const body = el("textarea", { value: n.body, placeholder: "Write something", readOnly: Hindsight.isPreview });
+  const meta = el("p", { className: "meta", textContent: isNew ? "New note" : "Edited " + when(n.updated) });
+  const change = () => {
+    n.title = title.value;
+    n.body = body.value;
+    n.updated = Date.now();
+    queueSave(key, n);
+  };
+  title.oninput = change;
+  body.oninput = change;
+  app.append(el("div", { className: "editor" }, bar, el("div", { className: "fields" }, title, meta, body)));
+  if (isNew) title.focus();
+}
+
+const isEmpty = (key) => !notes[key] || (!notes[key].title.trim() && !notes[key].body.trim());
+
+function queueSave(key, note) {
+  pending = { key, note };
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(flush, 400);
+}
+
+async function flush() {
+  clearTimeout(saveTimer);
+  if (!pending || Hindsight.isPreview) return;
+  const { key, note } = pending;
+  pending = null;
+  if (isEmpty(key)) return;
+  await store.set(key, note);
+}
+
+async function removeNote(key) {
+  clearTimeout(saveTimer);
+  pending = null;
+  const title = (notes[key] && notes[key].title) || "Untitled";
+  try {
+    await store.delete(key, { label: `Before deleting “${title}”` });
+  } catch (e) {
+    if (e.status !== 404) throw e;  // never saved: nothing to delete
+  }
+  delete notes[key];
+  renderList();
+  Hindsight.system.toast(`Deleted “${title}”. Rewind can bring it back.`);
+}
+
+Hindsight.onFlush(() => { flush(); });
+Hindsight.on("rewound", async () => { await load(); renderList(); });
+
+load().then(renderList).catch((e) => {
+  app.append(el("div", { className: "hs-empty" }, el("strong", { textContent: "Notes couldn't load" }), e.message));
+});
+</script>
+</body>
+</html>

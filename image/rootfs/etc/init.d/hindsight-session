@@ -1,0 +1,24 @@
+#!/sbin/openrc-run
+
+name="Hindsight interface"
+description="Shows the phone interface on the screen (cage + Chromium)"
+supervisor=supervise-daemon
+command=/usr/bin/hindsight-session
+command_user=hindsight:hindsight
+output_log=/var/log/hindsight/session.log
+error_log=/var/log/hindsight/session.log
+respawn_delay=3
+respawn_max=0
+
+depend() {
+	need hindsightd seatd udev
+	after udev-settle
+}
+
+start_pre() {
+	checkpath -d -m 0755 /run/user
+	checkpath -d -m 0700 -o hindsight:hindsight /run/user/1000
+	checkpath -d -m 0755 /var/log/hindsight
+	# The session runs as "hindsight", so its log must be writable by that user.
+	checkpath -f -m 0644 -o hindsight:hindsight /var/log/hindsight/session.log
+}

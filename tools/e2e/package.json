@@ -1,0 +1,9 @@
+{
+  "name": "hindsight-e2e",
+  "private": true,
+  "description": "Drives the Hindsight interface in headless Chrome and checks Rewind end to end.",
+  "type": "module",
+  "dependencies": {
+    "puppeteer-core": "^24.0.0"
+  }
+}

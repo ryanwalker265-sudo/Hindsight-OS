@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sketch</title>
+<link rel="stylesheet" href="/sdk/hindsight.css">
+<style>
+  body { display: flex; flex-direction: column; overflow: hidden; user-select: none; }
+  .tools { gap: 10px; }
+  .swatch {
+    width: 30px; height: 30px; border-radius: 50%;
+    border: 0; padding: 0; cursor: pointer;
+    background: var(--c);
+    box-shadow: 0 0 0 2px var(--hs-paper), 0 0 0 3.5px transparent;
+  }
+  .swatch[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--hs-paper), 0 0 0 4px var(--hs-ink); }
+  .stage { position: relative; flex: 1; }
+  canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; cursor: crosshair; }
+  html[data-hs-preview] canvas { cursor: default; }
+  .hint { position: absolute; inset: auto 0 18px; text-align: center; color: var(--hs-muted);
+          font-size: 14px; pointer-events: none; }
+</style>
+</head>
+<body>
+<header class="hs-bar tools">
+  <h1>Sketch</h1>
+  <span class="hs-edit-only" id="swatches" style="display:flex;gap:10px"></span>
+  <button class="hs-btn icon hs-edit-only" id="undo" type="button" aria-label="Undo last line">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg>
+  </button>
+  <button class="hs-btn icon danger hs-edit-only" id="clear" type="button" aria-label="Clear drawing">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg>
+  </button>
+</header>
+<div class="stage" id="stage">
+  <canvas id="canvas"></canvas>
+  <p class="hint" id="hint" hidden></p>
+</div>
+<script src="/sdk/hindsight.js"></script>
+<script>
+"use strict";
+/* Drawings are stored in a 1000-unit-wide space so they redraw at any size
+   (the Rewind preview shows them smaller). */
+const COLORS = ["#0e2c4f", "#1f5a99", "#c2546b", "#d99a1e"];
+const store = Hindsight.storage;
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+const hint = document.getElementById("hint");
+let drawing = { aspect: null, strokes: [] };
+let color = COLORS[0];
+let current = null;
+
+function size() {
+  const r = canvas.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = Math.round(r.width * dpr);
+  canvas.height = Math.round(r.height * dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  redraw();
+}
+
+function layout() {
+  const r = canvas.getBoundingClientRect();
+  const aspect = drawing.aspect || r.height / r.width;
+  const scale = Math.min(r.width / 1000, r.height / (1000 * aspect));
+  const ox = (r.width - 1000 * scale) / 2;
+  const oy = (r.height - 1000 * aspect * scale) / 2;
+  return { scale, ox, oy, aspect };
+}
+
+function drawStroke(s, L) {
+  const p = s.p;
+  if (p.length < 2) return;
+  ctx.strokeStyle = s.c;
+  ctx.lineWidth = s.w * L.scale;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.beginPath();
+  ctx.moveTo(L.ox + p[0] * L.scale, L.oy + p[1] * L.scale);
+  if (p.length === 2) ctx.lineTo(L.ox + p[0] * L.scale + 0.01, L.oy + p[1] * L.scale);
+  for (let i = 2; i < p.length; i += 2) ctx.lineTo(L.ox + p[i] * L.scale, L.oy + p[i + 1] * L.scale);
+  ctx.stroke();
+}
+
+function redraw() {
+  const r = canvas.getBoundingClientRect();
+  ctx.clearRect(0, 0, r.width, r.height);
+  const L = layout();
+  for (const s of drawing.strokes) drawStroke(s, L);
+  if (current) drawStroke(current, L);
+  const empty = !drawing.strokes.length && !current;
+  hint.hidden = !empty;
+  hint.textContent = Hindsight.isPreview ? "Nothing was drawn yet at this point." : "Draw anywhere";
+}
+
+function toLocal(e) {
+  const r = canvas.getBoundingClientRect();
+  const L = layout();
+  return [Math.round(((e.clientX - r.left - L.ox) / L.scale) * 10) / 10,
+          Math.round(((e.clientY - r.top - L.oy) / L.scale) * 10) / 10];
+}
+
+async function save() {
+  drawing.updated = Date.now();
+  await store.set("drawing", drawing);
+}
+
+if (!Hindsight.isPreview) {
+  canvas.addEventListener("pointerdown", (e) => {
+    if (!drawing.aspect) {
+      const r = canvas.getBoundingClientRect();
+      drawing.aspect = r.height / r.width;
+    }
+    canvas.setPointerCapture(e.pointerId);
+    current = { c: color, w: 8, p: toLocal(e) };
+    redraw();
+  });
+  canvas.addEventListener("pointermove", (e) => {
+    if (!current) return;
+    const [x, y] = toLocal(e);
+    const p = current.p;
+    if (Math.hypot(x - p[p.length - 2], y - p[p.length - 1]) < 2) return;
+    p.push(x, y);
+    redraw();
+  });
+  const finish = () => {
+    if (!current) return;
+    drawing.strokes.push(current);
+    current = null;
+    redraw();
+    save();
+  };
+  canvas.addEventListener("pointerup", finish);
+  canvas.addEventListener("pointercancel", finish);
+}
+
+const swatches = document.getElementById("swatches");
+for (const c of COLORS) {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = "swatch";
+  b.style.setProperty("--c", c);
+  b.setAttribute("aria-label", "Colour " + c);
+  b.setAttribute("aria-pressed", String(c === color));
+  b.onclick = () => {
+    color = c;
+    swatches.querySelectorAll(".swatch").forEach((s) => s.setAttribute("aria-pressed", String(s === b)));
+  };
+  swatches.append(b);
+}
+
+document.getElementById("undo").onclick = () => {
+  if (!drawing.strokes.length) return;
+  drawing.strokes.pop();
+  redraw();
+  save();
+};
+document.getElementById("clear").onclick = async () => {
+  if (!drawing.strokes.length) return;
+  await Hindsight.checkpoint("Before clearing the drawing");
+  drawing = { aspect: drawing.aspect, strokes: [] };
+  redraw();
+  await save();
+  Hindsight.system.toast("Drawing cleared. Rewind can bring it back.");
+};
+
+async function load() {
+  drawing = await store.get("drawing", { aspect: null, strokes: [] });
+  if (!drawing.strokes) drawing.strokes = [];
+  redraw();
+}
+Hindsight.on("rewound", load);
+window.addEventListener("resize", size);
+size();
+load();
+</script>
+</body>
+</html>

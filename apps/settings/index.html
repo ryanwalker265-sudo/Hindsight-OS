@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Settings</title>
+<link rel="stylesheet" href="/sdk/hindsight.css">
+<style>
+  section { padding: 18px 20px 6px; }
+  h2 { margin: 0 0 4px; font-size: 18px; font-weight: 650; }
+  .lede { margin: 0 0 12px; color: var(--hs-muted); font-size: 15px; }
+  fieldset { border: 0; margin: 0; padding: 0; }
+  legend { font-weight: 600; margin-bottom: 8px; padding: 0; }
+  .choices { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }
+  .choices label {
+    display: inline-flex; align-items: center;
+    min-height: 40px; padding: 0 14px;
+    border-radius: 999px;
+    border: 1.5px solid var(--hs-rule);
+    cursor: pointer;
+  }
+  .choices input { position: absolute; opacity: 0; pointer-events: none; }
+  .choices input:checked + span { font-weight: 650; }
+  .choices label:has(input:checked) { background: var(--hs-blue); border-color: var(--hs-blue); color: var(--hs-paper); }
+  .choices label:has(input:focus-visible) { outline: 2px solid var(--hs-blue); outline-offset: 2px; }
+  html[data-hs-preview] .choices label { cursor: default; }
+  dl { margin: 0 0 24px; display: grid; grid-template-columns: auto 1fr; gap: 10px 16px; }
+  dt { color: var(--hs-muted); }
+  dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
+  .wide { width: 100%; }
+  hr { border: 0; border-top: 1px solid var(--hs-rule); margin: 12px 0 0; }
+</style>
+</head>
+<body>
+<header class="hs-bar"><h1>Settings</h1></header>
+
+<section>
+  <h2>Rewind</h2>
+  <p class="lede">Your phone saves a point whenever something has changed. It keeps every point
+    from the last 2 hours, one per hour for 2 days, and one per day for 30 days.</p>
+  <fieldset>
+    <legend>Save a point every</legend>
+    <div class="choices" id="interval"></div>
+  </fieldset>
+  <button class="hs-btn wide hs-edit-only" id="phoneRewind" type="button">Rewind the whole phone</button>
+</section>
+<hr>
+<section>
+  <h2>Home screen</h2>
+  <fieldset>
+    <legend>Sky</legend>
+    <div class="choices" id="sky"></div>
+  </fieldset>
+</section>
+<hr>
+<section>
+  <h2>About this phone</h2>
+  <dl id="about"></dl>
+</section>
+
+<script src="/sdk/hindsight.js"></script>
+<script>
+"use strict";
+const store = Hindsight.storage;
+
+function choices(container, name, options, value, onPick) {
+  container.textContent = "";
+  for (const [val, label] of options) {
+    const lab = document.createElement("label");
+    const input = document.createElement("input");
+    input.type = "radio";
+    input.name = name;
+    input.value = String(val);
+    input.checked = String(val) === String(value);
+    input.disabled = Hindsight.isPreview;
+    input.onchange = () => onPick(val);
+    const span = document.createElement("span");
+    span.textContent = label;
+    lab.append(input, span);
+    container.append(lab);
+  }
+}
+
+async function render() {
+  let info = null;
+  try { info = await (await fetch("/api/system")).json(); } catch (_) { /* shown below */ }
+  const interval = await store.get("rewind.interval", info ? info.interval : 60);
+  choices(document.getElementById("interval"), "interval",
+    [[30, "30 seconds"], [60, "1 minute"], [300, "5 minutes"], [900, "15 minutes"]],
+    interval, (v) => store.set("rewind.interval", v));
+
+  const sky = await store.get("home.sky", "time");
+  choices(document.getElementById("sky"), "sky",
+    [["time", "Follows the time of day"], ["night", "Night"], ["paper", "Paper"]],
+    sky, (v) => store.set("home.sky", v));
+
+  const about = document.getElementById("about");
+  about.textContent = "";
+  if (info) {
+    const rows = [
+      ["Software", `Hindsight ${info.version}`],
+      ["Rewind storage", info.backend.name === "btrfs" ? "Btrfs snapshots" : "Folder copies (dev mode)"],
+      ["Saved points", String(info.points)],
+      ["App snapshots", String(info.snapshots)],
+      ["Apps", String(info.apps)],
+      ["Device name", info.host],
+    ];
+    for (const [k, v] of rows) {
+      const dt = document.createElement("dt"); dt.textContent = k;
+      const dd = document.createElement("dd"); dd.textContent = v;
+      about.append(dt, dd);
+    }
+  } else {
+    about.textContent = "Couldn't read system information.";
+  }
+}
+
+document.getElementById("phoneRewind").onclick = () => Hindsight.system.openPhoneRewind();
+Hindsight.on("rewound", render);
+render();
+</script>
+</body>
+</html>

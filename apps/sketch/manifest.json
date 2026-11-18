@@ -1,0 +1,10 @@
+{
+  "id": "sketch",
+  "name": "Sketch",
+  "version": "0.1.0",
+  "entry": "index.html",
+  "icon": "icon.svg",
+  "color": "#c2546b",
+  "order": 2,
+  "description": "Draw with your finger. Turn the Rewind dial to watch a drawing un-draw itself."
+}

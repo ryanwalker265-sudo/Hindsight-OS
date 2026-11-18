@@ -1,0 +1,10 @@
+{
+  "id": "notes",
+  "name": "Notes",
+  "version": "0.1.0",
+  "entry": "index.html",
+  "icon": "icon.svg",
+  "color": "#f4f7fb",
+  "order": 1,
+  "description": "Plain notes. Delete one, then rewind to get it back."
+}

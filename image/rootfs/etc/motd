@@ -1,0 +1,11 @@
+
+Hindsight (development image)
+
+  hindsightd log:   /var/log/hindsight/hindsightd.log
+  interface log:    /var/log/hindsight/session.log
+  app data:         /var/lib/hindsight/apps/<app>     (Btrfs subvolumes)
+  snapshots:        /var/lib/hindsight/snapshots/<app>/<time>
+
+  rc-service hindsight-session restart     reload the interface
+  btrfs subvolume list /                   see every snapshot
+

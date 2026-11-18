@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Hindsight</title>
+<link rel="preload" href="/shell/fonts/atkinson-hyperlegible-next-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/shell/shell.css">
+</head>
+<body>
+<div class="device">
+  <div class="screen" id="screen">
+
+    <header class="statusbar">
+      <span id="clock">--:--</span>
+      <span class="saved" id="saved" title="Last Rewind point"></span>
+    </header>
+
+    <main class="home" id="home">
+      <svg class="sky" id="sky" viewBox="0 0 434 178" preserveAspectRatio="xMidYMid meet" aria-hidden="true"></svg>
+      <p class="date" id="date"></p>
+      <ul class="grid" id="grid" aria-label="Apps"></ul>
+    </main>
+
+    <section class="app" id="app" hidden>
+      <iframe id="live" title="App"></iframe>
+      <iframe id="past" title="App in the past" hidden></iframe>
+      <div class="phone-view" id="phoneView" hidden></div>
+      <span class="past-label" id="pastLabel" hidden></span>
+    </section>
+
+    <section class="rewind" id="rewind" aria-label="Rewind" hidden>
+      <div class="readout" aria-live="polite">
+        <p class="rel" id="rwRel"></p>
+        <p class="abs" id="rwAbs"></p>
+        <p class="what" id="rwWhat"></p>
+      </div>
+      <div class="dial" id="dial" tabindex="0" role="slider" aria-label="Time"
+           aria-valuemin="0" aria-valuenow="0">
+        <svg id="dialSvg" viewBox="0 0 390 150" preserveAspectRatio="xMidYMin slice" aria-hidden="true"></svg>
+        <span class="dial-hint" id="dialHint">Drag the dial to go back in time</span>
+      </div>
+      <div class="actions">
+        <button class="btn" id="rwNow" type="button">Back to now</button>
+        <button class="btn primary" id="rwRestore" type="button" disabled>Restore this version</button>
+      </div>
+    </section>
+
+    <nav class="navbar">
+      <button class="home-pill" id="homeBtn" type="button" aria-label="Home"></button>
+      <button class="rewind-btn" id="rewindBtn" type="button" aria-label="Rewind">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M5.2 8.6A8 8 0 1 1 4 13"/>
+          <path d="M4.6 4.2v4.6h4.6"/>
+          <path d="M12 8v4.2l2.8 1.8"/>
+        </svg>
+      </button>
+    </nav>
+
+    <div class="toast" id="toast" role="status" hidden>
+      <span class="msg" id="toastMsg"></span>
+      <button type="button" id="toastAction" hidden></button>
+    </div>
+
+    <div class="boot" id="boot" aria-hidden="true">
+      <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round">
+        <path d="M6 44 Q32 4 58 44"/><circle cx="32" cy="24" r="6" fill="currentColor" stroke="none"/>
+        <path d="M2 44h60" opacity=".5"/>
+      </svg>
+    </div>
+  </div>
+</div>
+<script src="/shell/shell.js"></script>
+</body>
+</html>

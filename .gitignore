@@ -1,0 +1,9 @@
+# build output
+dist/
+# dev-mode data (python3 -m hindsightd --dev)
+.hindsight-data/
+# test tooling
+tools/e2e/node_modules/
+tools/e2e/screenshots/
+__pycache__/
+*.pyc

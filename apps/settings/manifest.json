@@ -1,0 +1,10 @@
+{
+  "id": "settings",
+  "name": "Settings",
+  "version": "0.1.0",
+  "entry": "index.html",
+  "icon": "icon.svg",
+  "color": "#8fb3da",
+  "order": 9,
+  "description": "How often Rewind saves, the home screen sky, and about this phone."
+}

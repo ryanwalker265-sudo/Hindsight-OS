@@ -1,0 +1,6 @@
+#!/bin/sh
+# Start the Hindsight system service (app storage + Rewind).
+export PYTHONPATH=/usr/lib/hindsight
+export PYTHONUNBUFFERED=1
+export PYTHONDONTWRITEBYTECODE=1
+exec /usr/bin/python3 -m hindsightd "$@"

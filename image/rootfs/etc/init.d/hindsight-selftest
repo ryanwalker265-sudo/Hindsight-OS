@@ -1,0 +1,16 @@
+#!/sbin/openrc-run
+
+name="Hindsight self-test"
+description="Checks Rewind end to end, only when booted with hs_selftest=1"
+
+depend() {
+	need hindsightd
+	after hindsight-session
+}
+
+start() {
+	grep -qw hs_selftest=1 /proc/cmdline || return 0
+	ebegin "Starting the Hindsight self-test (results on the serial console)"
+	( /usr/bin/python3 /usr/lib/hindsight/selftest.py > /dev/ttyS0 2>&1 & )
+	eend 0
+}
