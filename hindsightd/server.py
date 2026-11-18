@@ -199,6 +199,7 @@ def make_handler(hs: Hindsight):
                     "snapshots": snaps,
                     "points": len(eng.list_points()),
                     "uptime": time.time() - hs.started,
+                    "eventClients": hs.events.count(),
                     "host": socket.gethostname(),
                     "platform": platform.platform(terse=True),
                     "now": time.time(),

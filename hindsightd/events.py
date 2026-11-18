@@ -21,6 +21,11 @@ class EventBus:
         with self._lock:
             self._subs.discard(q)
 
+    def count(self) -> int:
+        """How many live event streams are open (the shell keeps one)."""
+        with self._lock:
+            return len(self._subs)
+
     def publish(self, event: dict) -> None:
         with self._lock:
             subs = list(self._subs)

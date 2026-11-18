@@ -72,20 +72,28 @@ def main():
                           capture_output=True, text=True)
     say(f"snapshot is {prop.stdout.strip() or prop.stderr.strip()}")
 
-    for _ in range(600):
-        if subprocess.run(["pgrep", "-f", "chromium"], capture_output=True).returncode == 0:
-            say("session OK (interface running)")
-            break
-        time.sleep(0.5)
+    # The interface counts as up once its page has loaded and opened its
+    # live event stream back to hindsightd (the browser merely running isn't enough).
+    started = time.time()
+    loaded = False
+    while time.time() - started < 600:
+        try:
+            if call("GET", "/api/system").get("eventClients", 0) >= 1:
+                loaded = True
+                break
+        except Exception:
+            pass
+        time.sleep(2)
+    if loaded:
+        say(f"interface OK (home screen loaded after {time.time() - started:.0f}s)")
     else:
-        say("FAIL interface did not start")
-        dump("/var/log/hindsight/session.log", 40)
-        for cmd in (["ps", "-o", "pid,user,args"], ["ls", "-la", "/run/user/1000", "/dev/dri"],
-                    ["rc-service", "hindsight-session", "status"]):
+        say("FAIL interface never loaded")
+        for cmd in (["ps", "-o", "pid,user,args"], ["ls", "-la", "/run/user/1000", "/dev/dri"]):
             out = subprocess.run(cmd, capture_output=True, text=True)
             say(f"--- {' '.join(cmd)}")
-            for line in (out.stdout + out.stderr).splitlines()[-25:]:
+            for line in (out.stdout + out.stderr).splitlines()[-30:]:
                 say(f"    {line}")
+    dump("/var/log/hindsight/session.log", 15 if loaded else 50)
     say("DONE")
 
 

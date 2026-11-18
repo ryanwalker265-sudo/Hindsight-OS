@@ -35,9 +35,10 @@ while ! grep -q "HINDSIGHT-SELFTEST: DONE" "$LOG" 2>/dev/null; do
 done
 grep "HINDSIGHT-SELFTEST" "$LOG" || true
 
-# Give the browser time to draw the home screen, then take a picture.
-SETTLE=${SETTLE:-90}
-[ "$ACCEL" = kvm ] && SETTLE=${SETTLE_KVM:-15}
+# The self-test waits until the home screen has loaded; give it a moment to
+# finish drawing, then take a picture.
+SETTLE=${SETTLE:-20}
+[ "$ACCEL" = kvm ] && SETTLE=${SETTLE_KVM:-5}
 sleep "$SETTLE"
 python3 - "$QMP" "$DIST/boot-screen.png" <<'EOF'
 import json, socket, sys
@@ -56,7 +57,7 @@ send("qmp_capabilities")
 print("screendump:", send("screendump", filename=sys.argv[2], format="png"))
 EOF
 
-if grep -q "HINDSIGHT-SELFTEST: rewind OK" "$LOG" && grep -q "HINDSIGHT-SELFTEST: session OK" "$LOG"; then
+if grep -q "HINDSIGHT-SELFTEST: rewind OK" "$LOG" && grep -q "HINDSIGHT-SELFTEST: interface OK" "$LOG"; then
   echo "Boot test passed. Screenshot: $DIST/boot-screen.png"
 else
   echo "Boot test FAILED. Last serial output:"
