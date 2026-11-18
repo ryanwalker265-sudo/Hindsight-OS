@@ -12,7 +12,11 @@ dial to see any app as it was earlier, then restore it. Restoring is undoable.
 </p>
 
 It runs on Linux (Alpine) with its own interface, app model and app SDK.
-Nothing in it comes from iOS or Android.
+Nothing in it comes from iOS or Android. Every build is booted in an
+emulator by CI, which checks Rewind on the real disk image and saves a
+screenshot of the phone's screen:
+
+<img src="docs/images/emulator.png" width="216" alt="Hindsight's home screen running in the QEMU emulator">
 
 ## Try it
 
@@ -58,6 +62,7 @@ On Linux, as root, with `btrfs-progs` and `qemu-utils` installed:
 sudo ./image/build.sh dist        # ~5-10 minutes, downloads ~400 MB
 sudo ./image/boot-test.sh dist    # boots it headless, checks Rewind, saves a screenshot
 ./dist/run-linux.sh
+sudo ./image/patch.sh dist        # after changing apps or the shell: update the disk in seconds
 ```
 
 GitHub Actions does the same on every push to `main`. Pushing a tag such as

@@ -58,3 +58,6 @@ an image for the phone, or for `qemu-amd64`.
 * Installing apps from a file (a zipped app folder)
 * Encrypting the data volume
 * Time zone setting (the emulator shows host-local time today)
+* Turn Chromium's GPU-process sandbox back on. It's off in the kiosk because
+  Alpine's build crashes on a blocked `pwritev2` call; either allow that call
+  or replace the browser with a lighter engine
