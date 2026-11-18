@@ -85,7 +85,23 @@ def main():
             pass
         time.sleep(2)
     if loaded:
-        say(f"interface OK (home screen loaded after {time.time() - started:.0f}s)")
+        took = time.time() - started
+        # Still there a little later? (catches a browser that loads, then crashes)
+        time.sleep(30)
+        try:
+            still = call("GET", "/api/system").get("eventClients", 0) >= 1
+        except Exception:
+            still = False
+        try:
+            with open("/var/log/hindsight/session.log", encoding="utf-8", errors="replace") as fh:
+                fatal = [l for l in fh.read().splitlines() if ":FATAL:" in l or "Goodbye" in l]
+        except OSError:
+            fatal = []
+        if still and not fatal:
+            say(f"interface OK (home screen loaded after {took:.0f}s and stayed up)")
+        else:
+            say(f"FAIL interface loaded after {took:.0f}s but then went away")
+            loaded = False
     else:
         say("FAIL interface never loaded")
         for cmd in (["ps", "-o", "pid,user,args"], ["ls", "-la", "/run/user/1000", "/dev/dri"]):
