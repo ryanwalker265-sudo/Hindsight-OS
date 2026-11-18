@@ -65,8 +65,8 @@ sudo ./image/boot-test.sh dist    # boots it headless, checks Rewind, saves a sc
 sudo ./image/patch.sh dist        # after changing apps or the shell: update the disk in seconds
 ```
 
-GitHub Actions does the same on every push to `main`. Pushing a tag such as
-`v0.1.0` also publishes a release with the zip.
+GitHub Actions does the same on every push to `main`. Publishing a release on
+GitHub (or pushing a tag like `v0.2.0`) attaches the emulator zip to it.
 
 ## Running the tests
 
